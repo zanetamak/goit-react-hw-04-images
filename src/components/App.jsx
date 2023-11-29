@@ -1,5 +1,5 @@
-import { Component } from 'react';
 import { Notify } from 'notiflix';
+import { useState, useEffect } from 'react'
 
 import css from './App.module.css';
 
@@ -11,60 +11,45 @@ import { Modal } from './Modal/Modal';
 import { fetchPicturesByQuery } from './Api';
 // Bez klamr, np. import Searchbar from './Searchbar/Searchbar';, zaimportowana byłaby cała zawartość modułu jako pojedyncza zmienna 
 // (jeśli taka składnia byłaby poprawna w danym kontekście, co w przypadku komponentów React jest raczej rzadko stosowane)
-export class App extends Component {
-  constructor() {
-    super();
-    this.state = {
-      images: [],
-      query: '',
-      page: 1,
-      isLoading: false,
-      showBtn: false,
-      showModal: false,
-      largeImageURL: '',
-    };
-  }
-onSubmit = e => {
-  e.preventDefault();
-  const query = e.target.search.value;
+export const App = () => {
+  const [images, setImages] = useState([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showBtn, setShowBtn] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState('');
 
+// od onSubmit do this.State włącznie,
+  const onSubmit = e => {
+    e.preventDefault();
+    setQuery(e.target.search.value);
+    setIsLoading(true);
+    setImages([]);
+    setPage(1);
+  };
 
-  this.setState({
-    query, // Aktualizacja stanu query na wartość, która została pobrana z formularza 
-    isLoading: true,
-    images: [],
-    page: 1, // ustawienie strony znowu na 1.
-  });
-
-  this.fetchGallery(query, 1); // wywolanie funkcji
+const onNextPage = () => { // wywoływana po naciśnięciu Load More
+setPage(prevState => prevState + 1);
+setIsLoading(true);
+fetchGallery(query, page + 1);
 };
 
-onNextPage = () => { // wywoływana po naciśnięciu Load More
-  const { query, page } = this.state;
-
-  this.setState({
-    page: page + 1,
-    isLoading: true,
-  });
-
-  this.fetchGallery(query, page + 1);
+const onClickImage = (url) => { // wywoływana po naciśnięciu na zdjecie
+   setShowModal(true);
+  setLargeImageURL(url);
 };
 
-onClickImage = (url) => { // wywoływana po naciśnięciu na zdjecie
-  this.setState({ showModal: true, largeImageURL: url });
+const onModalClose = () => { // po zamknięciu
+  setShowModal(false);
+  setLargeImageURL('');
 };
 
-onModalClose = () => { // po zamknięciu
-  this.setState({ showModal: false, largeImageURL: '' });
-};
-
-fetchGallery = (query, page) => { // uywanie fetchP... do pobrania danych
+const fetchGallery = (query, page) => { // uywanie fetchP... do pobrania danych
   fetchPicturesByQuery(query, page)
-    .then((response) => {
-      this.setState((prevState) => ({ // setState jako aktualizacja stanu komponentu
-        images: [...prevState.images, ...response], // Aktualizacja images przez dodanie nowych obrazów do istniejącej kolekcji. Operator ... służy do rozpakowywania tablic i umożliwia dodanie nowych elementów do istniejącej tablicy.
-        showBtn: response.length === 12,
-      }));
+      .then((response) => {
+        setImages((prevImages) => [...prevImages, ...response]);
+        setShowBtn(response.length === 12);;
 
       if (response.length === 0) {
         Notify.failure('No matches found!');
@@ -74,29 +59,32 @@ fetchGallery = (query, page) => { // uywanie fetchP... do pobrania danych
       this.setState({ error });
     })
     .finally(() => { // wykonany niezależnie od tego, czy operacja zakończyła się sukcesem, czy błędem. stan isLoading na false czyli operacja asynchroniczna została zakończona,
-      this.setState({ isLoading: false });
+      setIsLoading(false);
     });
 };
+  
+  useEffect(() => {
+  if (query !== '') {
+    fetchGallery(query, page);
+  }
+}, [query, page]);
     
-  render() {
-    const { images, isLoading, showBtn, showModal, largeImageURL } = this.state;
 
     return (
       <div className={css.App}>
-        <Searchbar onSubmit={this.onSubmit} />
-        <ImageGallery images={images} onClickImage={this.onClickImage} />
+        <Searchbar onSubmit={onSubmit} />
+        <ImageGallery images={images} onClickImage={onClickImage} />
         {isLoading && <Loader />} 
-            {showBtn && <Button onNextPage={this.onNextPage} />}
+            {showBtn && <Button onNextPage={onNextPage} />}
         {showModal && (
           <Modal
             largeImageURL={largeImageURL}
-            onModalClose={this.onModalClose}
+            onModalClose={onModalClose}
           />
         )}
       </div>
     );
   }
-}
 // jeśli isLoading = true to renderuje sie Loader
 // jeśli showBtn jest prawdzia to renderuje sie Button z funkcją on NextPage
 //  pozwala na dynamiczne dodawanie lub usuwanie komponentu w zależności od warunku.
